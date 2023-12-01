@@ -1,61 +1,35 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
- 
+# Check for root privileges
+if [ "$(id -u)" != "0" ]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
 
-# blacklist the nouveau driver
+# Update and upgrade the system
+echo "Updating and upgrading your system..."
+sudo apt-get update
+sudo apt-get upgrade -y
 
-touch /etc/modprobe.d/10-blacklist_nouveau.conf
+# Remove existing NVIDIA drivers
+echo "Removing any existing NVIDIA drivers..."
+sudo apt-get purge nvidia-* -y
 
-echo "blacklist nouveau" >> /etc/modprobe.d/10-blacklist_nouveau.conf
+# Install recommended NVIDIA drivers
+echo "Installing recommended drivers..."
+sudo ubuntu-drivers autoinstall
 
-echo "option nouveau modeset=0" >> /etc/modprobe.d/10-blacklist_nouveau.conf
+# Rebuild kernel modules with DKMS
+echo "Rebuilding kernel modules..."
+sudo dkms autoinstall
 
- 
+# Disable nouveau drivers
+echo "Disabling nouveau drivers..."
+echo -e "blacklist nouveau\noptions nouveau modeset=0" | sudo tee /etc/modprobe.d/blacklist-nouveau.conf
+sudo update-initramfs -u
 
-# remove everything nvidia related
-
-apt remove --purge '^nvidia-.*'
-
- 
-
-# install matching kernel headers if needed
-
-apt install linux-headers-$(uname -r)
-
- 
-
-# install the repo
-
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
-
-mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
-
-apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
-
-add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /"
-
- 
-
-# initialize the repo
-
-apt update
-
- 
-
-# install the toolkit and all drivers
-
-apt install -y cuda
-
- 
-
-# update the paths for the system to see CUDA
-
-echo "export PATH=/usr/local/cuda-12.2/bin${PATH:+:${PATH}}" >> ~/.bashrc
-
-echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.2/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> ~/.bashrc
-
- 
-
-# source your bashrc file to refresh environment
-
-source ~/.bashrc
+# Reboot
+echo "A reboot is required to complete the installation..."
+echo "The system will reboot in 30 seconds..."
+sleep 30
+sudo reboot
